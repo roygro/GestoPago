@@ -13,5 +13,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 public interface ProductoClient {
 
     @GetMapping("/sistema/service/getProductList.do")
-    ProductoServiceResponse getProductList();
+     ProductoServiceResponse getProductList();
+    //Response getProductList(@re)
 }

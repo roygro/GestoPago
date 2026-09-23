@@ -20,7 +20,6 @@ import java.awt.*;
 @RestController
 public class PersonaController {
 
-
     @Autowired
     private PersonaService personaService;
 

@@ -4,6 +4,7 @@ import com.proyecto.servicios.model.GenericResponse;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import java.util.Map;
 
 import java.util.List;
 
@@ -12,5 +13,5 @@ import java.util.List;
 @NoArgsConstructor
 public class ProductoListResponse extends GenericResponse {
 
-    private List<ProductoDTO> productos;
+    private Map<String, List<ProductoDTO>> productos;
 }
