@@ -102,16 +102,19 @@ public class ClienteServiceImpl implements ClienteService {
 
     @Override
     public ClienteResponse consultarPorCurp(String curp) {
-        return clienteRepository.findByCurp(curp)
+        // Se guarda en mayúsculas, así que se busca en mayúsculas sin importar cómo lo escriba el usuario
+        String curpNormalizada = curp.trim().toUpperCase();
+        return clienteRepository.findByCurp(curpNormalizada)
                 .map(this::toClienteResponse)
-                .orElseThrow(() -> new ClienteNoEncontradoException("CURP " + curp));
+                .orElseThrow(() -> new ClienteNoEncontradoException("CURP " + curpNormalizada));
     }
 
     @Override
     public ClienteResponse consultarPorRfc(String rfc) {
-        return clienteRepository.findByRfc(rfc)
+        String rfcNormalizado = rfc.trim().toUpperCase();
+        return clienteRepository.findByRfc(rfcNormalizado)
                 .map(this::toClienteResponse)
-                .orElseThrow(() -> new ClienteNoEncontradoException("RFC " + rfc));
+                .orElseThrow(() -> new ClienteNoEncontradoException("RFC " + rfcNormalizado));
     }
 
     @Override

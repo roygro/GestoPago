@@ -1,53 +1,49 @@
 package com.proyecto.servicios.controller;
 
 import com.proyecto.servicios.exception.cliente.*;
+import com.proyecto.servicios.model.GenericResponse;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.stream.Collectors;
 
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(basePackages = "com.proyecto.servicios.controller")
 public class ClienteExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> manejaValidacion(MethodArgumentNotValidException ex) {
-        Map<String, String> errores = new LinkedHashMap<>();
-        for (FieldError error : ex.getBindingResult().getFieldErrors()) {
-            errores.put(error.getField(), error.getDefaultMessage());
-        }
-        return construyeRespuesta(HttpStatus.BAD_REQUEST, "Error de validación", errores);
+    public ResponseEntity<GenericResponse> manejaValidacion(MethodArgumentNotValidException ex) {
+        String detalle = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .collect(Collectors.joining("; "));
+        return construyeRespuesta(HttpStatus.BAD_REQUEST, "Error de validación - " + detalle);
     }
 
     @ExceptionHandler({CurpDuplicadaException.class, RfcDuplicadoException.class,
             CorreoDuplicadoException.class, ClienteYaRegistradoException.class})
-    public ResponseEntity<Map<String, Object>> manejaConflicto(ClienteBusinessException ex) {
-        return construyeRespuesta(HttpStatus.CONFLICT, ex.getMessage(), null);
+    public ResponseEntity<GenericResponse> manejaConflicto(ClienteBusinessException ex) {
+        return construyeRespuesta(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler({ClienteNoEncontradoException.class, CuentaNoEncontradaException.class})
-    public ResponseEntity<Map<String, Object>> manejaNoEncontrado(ClienteBusinessException ex) {
-        return construyeRespuesta(HttpStatus.NOT_FOUND, ex.getMessage(), null);
+    public ResponseEntity<GenericResponse> manejaNoEncontrado(ClienteBusinessException ex) {
+        return construyeRespuesta(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
     @ExceptionHandler(ValidacionNegocioException.class)
-    public ResponseEntity<Map<String, Object>> manejaValidacionNegocio(ValidacionNegocioException ex) {
-        return construyeRespuesta(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
+    public ResponseEntity<GenericResponse> manejaValidacionNegocio(ValidacionNegocioException ex) {
+        return construyeRespuesta(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
-    private ResponseEntity<Map<String, Object>> construyeRespuesta(HttpStatus status, String mensaje, Object detalle) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("timestamp", LocalDateTime.now());
-        body.put("codigo", status.value());
-        body.put("mensaje", mensaje);
-        if (detalle != null) {
-            body.put("errores", detalle);
-        }
-        return new ResponseEntity<>(body, status);
+    private ResponseEntity<GenericResponse> construyeRespuesta(HttpStatus status, String mensaje) {
+        GenericResponse response = new GenericResponse();
+        response.setCodigo(status.value());
+        response.setMensaje(mensaje);
+        return new ResponseEntity<>(response, status);
     }
 }

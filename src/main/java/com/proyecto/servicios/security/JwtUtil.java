@@ -29,6 +29,9 @@ public class JwtUtil {
                 LocalDateTime.now().plusHours(expiracionHoras).atZone(ZoneId.systemDefault()).toInstant()
         );
         return Jwts.builder()
+                // jti único: dos logins del mismo usuario en el mismo segundo ya no generan el mismo
+                // token (jwt_token es UNIQUE en la tabla login)
+                .id(java.util.UUID.randomUUID().toString())
                 .subject(usuario)
                 .claim("clienteId", clienteId)
                 .issuedAt(ahora)

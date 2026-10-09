@@ -41,7 +41,7 @@ public class Cliente {
     @Column(name = "rfc", nullable = false, length = 13)
     private String rfc;
 
-    @Column(name = "sexo", nullable = false, length = 1)
+    @Column(name = "sexo", nullable = false, length = 5)
     private String sexo;
 
     @Column(name = "nacionalidad", nullable = false, length = 50)
