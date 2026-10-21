@@ -11,18 +11,22 @@ import com.proyecto.servicios.exception.cliente.RfcDuplicadoException;
 import com.proyecto.servicios.model.cliente.*;
 import com.proyecto.servicios.repositorys.sf.ClienteRepository;
 import com.proyecto.servicios.repositorys.sf.CuentaRepository;
+import com.proyecto.servicios.security.UsuarioAutenticado;
 import com.proyecto.servicios.service.ClienteService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.proyecto.servicios.repositorys.sf.ClienteSpecification;
+import com.proyecto.servicios.exception.cliente.ValidacionNegocioException;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import com.proyecto.servicios.exception.cliente.AccesoDenegadoException;
+import org.springframework.util.StringUtils;
 
 @Service
 @Slf4j
@@ -36,6 +40,9 @@ public class ClienteServiceImpl implements ClienteService {
     @Autowired
     private CuentaRepository cuentaRepository;
 
+    @Autowired
+    private UsuarioAutenticado usuarioAutenticado;
+
     @Value("${cuenta.saldo-inicial:0}")
     private BigDecimal saldoInicial;
 
@@ -48,7 +55,8 @@ public class ClienteServiceImpl implements ClienteService {
         if (clienteRepository.existsByRfc(request.getRfc())) {
             throw new RfcDuplicadoException(request.getRfc());
         }
-        if (clienteRepository.existsByCorreoElectronico(request.getCorreoElectronico())) {
+
+        if (clienteRepository.existsByCorreoElectronicoIgnoreCase(request.getCorreoElectronico())) {
             throw new CorreoDuplicadoException(request.getCorreoElectronico());
         }
 
@@ -91,64 +99,13 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
-    public List<ClienteResponse> consultarTodos() {
-        return clienteRepository.findAll().stream().map(this::toClienteResponse).collect(Collectors.toList());
-    }
-
-    @Override
-    public ClienteResponse consultarPorId(Long id) {
-        return toClienteResponse(buscarClienteOFallar(id));
-    }
-
-    @Override
-    public ClienteResponse consultarPorCurp(String curp) {
-        // Se guarda en mayúsculas, así que se busca en mayúsculas sin importar cómo lo escriba el usuario
-        String curpNormalizada = curp.trim().toUpperCase();
-        return clienteRepository.findByCurp(curpNormalizada)
-                .map(this::toClienteResponse)
-                .orElseThrow(() -> new ClienteNoEncontradoException("CURP " + curpNormalizada));
-    }
-
-    @Override
-    public ClienteResponse consultarPorRfc(String rfc) {
-        String rfcNormalizado = rfc.trim().toUpperCase();
-        return clienteRepository.findByRfc(rfcNormalizado)
-                .map(this::toClienteResponse)
-                .orElseThrow(() -> new ClienteNoEncontradoException("RFC " + rfcNormalizado));
-    }
-
-    @Override
-    public ClienteResponse consultarPorCorreo(String correo) {
-        return clienteRepository.findByCorreoElectronico(correo)
-                .map(this::toClienteResponse)
-                .orElseThrow(() -> new ClienteNoEncontradoException("correo " + correo));
-    }
-
-    @Override
-    public ClienteResponse consultarPorNumeroCuenta(String numeroCuenta) {
-        Cuenta cuenta = cuentaRepository.findByNumeroCuenta(numeroCuenta)
-                .orElseThrow(() -> new ClienteNoEncontradoException("cuenta " + numeroCuenta));
-        return toClienteResponse(cuenta.getCliente());
-    }
-
-    @Override
-    public List<ClienteResponse> consultarActivos() {
-        return clienteRepository.findByActivoTrue().stream().map(this::toClienteResponse).collect(Collectors.toList());
-    }
-
-    @Override
-    public List<ClienteResponse> consultarPorRangoFechas(LocalDateTime desde, LocalDateTime hasta) {
-        return clienteRepository.findByFechaRegistroBetween(desde, hasta)
-                .stream().map(this::toClienteResponse).collect(Collectors.toList());
-    }
-
-    @Override
     @Transactional
-    public ClienteResponse actualizarCliente(Long id, ClienteActualizaRequest request) {
-        Cliente cliente = buscarClienteOFallar(id);
+    public ClienteResponse actualizarCliente(ClienteActualizaRequest request) {
+        usuarioAutenticado.validarPropietario(request.getId());
+        Cliente cliente = buscarClienteOFallar(request.getId());
 
         if (!cliente.getCorreoElectronico().equalsIgnoreCase(request.getCorreoElectronico())
-                && clienteRepository.existsByCorreoElectronico(request.getCorreoElectronico())) {
+                && clienteRepository.existsByCorreoElectronicoIgnoreCase(request.getCorreoElectronico())) {
             throw new CorreoDuplicadoException(request.getCorreoElectronico());
         }
 
@@ -169,6 +126,7 @@ public class ClienteServiceImpl implements ClienteService {
     @Override
     @Transactional
     public void darDeBajaLogica(Long id) {
+        usuarioAutenticado.validarPropietario(id);
         Cliente cliente = buscarClienteOFallar(id);
         cliente.setActivo(false);
         cliente.getCuentas().forEach(c -> c.setEstatus("INACTIVA"));
@@ -272,6 +230,48 @@ public class ClienteServiceImpl implements ClienteService {
         dto.setDomicilio(toDomicilioDTO(cliente.getDomicilio()));
         dto.setCuentas(cliente.getCuentas().stream().map(this::toCuentaResponse).collect(Collectors.toList()));
         return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ClienteResponse> buscarClientes(ClienteBusquedaRequest filtros) {
+        // Un cliente solo puede buscar dentro de su propia información
+        Cliente propio = buscarClienteOFallar(usuarioAutenticado.obtenerClienteId());
+        validarFiltrosPropios(filtros, propio);
+        filtros.setId(propio.getId());
+
+        if (filtros.getFechaRegistroDesde() != null && filtros.getFechaRegistroHasta() != null
+                && filtros.getFechaRegistroDesde().isAfter(filtros.getFechaRegistroHasta())) {
+            throw new ValidacionNegocioException("La fecha inicial no puede ser posterior a la fecha final");
+        }
+
+        List<Cliente> clientes = clienteRepository.findAll(ClienteSpecification.conFiltros(filtros));
+        if (clientes.isEmpty()) {
+            throw new ClienteNoEncontradoException("no hay coincidencias con los criterios indicados");
+        }
+        return clientes.stream().map(this::toClienteResponse).collect(Collectors.toList());
+    }
+
+    /**
+     * Si algún criterio identificador (id, CURP, RFC, correo o cuenta) no coincide con los datos
+     * del cliente autenticado, responde 403 sin revelar si ese dato existe en el sistema.
+     */
+    private void validarFiltrosPropios(ClienteBusquedaRequest f, Cliente propio) {
+        boolean ajeno =
+                (f.getId() != null && !propio.getId().equals(f.getId()))
+                        || (StringUtils.hasText(f.getCurp())
+                        && !f.getCurp().trim().equalsIgnoreCase(propio.getCurp()))
+                        || (StringUtils.hasText(f.getRfc())
+                        && !f.getRfc().trim().equalsIgnoreCase(propio.getRfc()))
+                        || (StringUtils.hasText(f.getCorreoElectronico())
+                        && !f.getCorreoElectronico().trim().equalsIgnoreCase(propio.getCorreoElectronico()))
+                        || (StringUtils.hasText(f.getNumeroCuenta())
+                        && propio.getCuentas().stream()
+                        .noneMatch(c -> c.getNumeroCuenta().equals(f.getNumeroCuenta().trim())));
+
+        if (ajeno) {
+            throw new AccesoDenegadoException("No tiene permiso para consultar información de otro cliente");
+        }
     }
 
 }

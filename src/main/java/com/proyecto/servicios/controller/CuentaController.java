@@ -1,21 +1,21 @@
 package com.proyecto.servicios.controller;
 
-import com.proyecto.servicios.model.GenericResponse;
+import com.proyecto.servicios.exception.ErrorResponse;
+import com.proyecto.servicios.model.RespuestaApi;
+import com.proyecto.servicios.model.cliente.CuentaConsultaRequest;
 import com.proyecto.servicios.model.cliente.CuentaResponse;
 import com.proyecto.servicios.model.cliente.SaldoResponse;
 import com.proyecto.servicios.service.CuentaService;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -27,28 +27,35 @@ public class CuentaController {
     private CuentaService cuentaService;
 
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = CuentaResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Not Found", content = @Content(schema = @Schema(implementation = GenericResponse.class)))
+            @ApiResponse(responseCode = "200", description = "OK"),
+            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Not Found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    @GetMapping(value = "/{numeroCuenta}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<CuentaResponse> consultarPorNumero(@PathVariable String numeroCuenta) {
-        return ResponseEntity.ok(cuentaService.consultarPorNumeroCuenta(numeroCuenta));
+    @PostMapping(value = "/consultar", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<RespuestaApi<CuentaResponse>> consultarPorNumero(@Valid @RequestBody CuentaConsultaRequest request) {
+        CuentaResponse cuenta = cuentaService.consultarPorNumeroCuenta(request.getNumeroCuenta());
+        return ResponseEntity.ok(RespuestaApi.de(HttpStatus.OK, "Cuenta consultada correctamente", cuenta));
     }
 
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = SaldoResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Not Found", content = @Content(schema = @Schema(implementation = GenericResponse.class)))
+            @ApiResponse(responseCode = "200", description = "OK"),
+            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Not Found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    @GetMapping(value = "/{numeroCuenta}/saldo", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<SaldoResponse> consultarSaldo(@PathVariable String numeroCuenta) {
-        return ResponseEntity.ok(cuentaService.consultarSaldo(numeroCuenta));
+    @PostMapping(value = "/saldo", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<RespuestaApi<SaldoResponse>> consultarSaldo(@Valid @RequestBody CuentaConsultaRequest request) {
+        SaldoResponse saldo = cuentaService.consultarSaldo(request.getNumeroCuenta());
+        return ResponseEntity.ok(RespuestaApi.de(HttpStatus.OK, "Saldo consultado correctamente", saldo));
     }
 
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = CuentaResponse.class))))
+            @ApiResponse(responseCode = "200", description = "OK")
     })
     @GetMapping(value = "/activas", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<List<CuentaResponse>> consultarActivas() {
-        return ResponseEntity.ok(cuentaService.consultarActivas());
+    public ResponseEntity<RespuestaApi<List<CuentaResponse>>> consultarActivas() {
+        List<CuentaResponse> cuentas = cuentaService.consultarActivas();
+        return ResponseEntity.ok(RespuestaApi.de(HttpStatus.OK, "Cuentas activas consultadas correctamente", cuentas));
     }
 }

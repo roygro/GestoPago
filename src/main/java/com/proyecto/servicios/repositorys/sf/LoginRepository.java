@@ -27,6 +27,8 @@ public interface LoginRepository extends JpaRepository<Login, Long> {
     /** true si ese nombre de usuario ya pertenece a OTRO cliente. */
     boolean existsByUsuarioAndClienteIdNot(String usuario, Long clienteId);
 
+    boolean existsByClienteId(Long clienteId);
+
     /**
      * Pone sesion_activa = false en las sesiones cuya última actividad + sus minutos de
      * inactividad ya pasó, o cuyo JWT ya expiró.

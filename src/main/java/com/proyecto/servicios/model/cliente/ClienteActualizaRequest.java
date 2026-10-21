@@ -14,22 +14,31 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 public class ClienteActualizaRequest {
 
+    @NotNull(message = "El id del cliente es obligatorio")
+    @Positive(message = "El id del cliente debe ser mayor a cero")
+    @Schema(example = "1")
+    private Long id;
+
     @NotBlank(message = "El nombre es obligatorio")
-    @Pattern(regexp = "^[A-Za-zÁÉÍÓÚáéíóúÑñ ]{2,50}$", message = "El nombre solo debe contener letras y espacios (2-50 caracteres)")
+    @Pattern(regexp = "^\\p{L}[\\p{L}' -]{1,49}$",
+            message = "El nombre solo debe contener letras, espacios, apóstrofes o guiones (2-50 caracteres)")
     @Schema(example = "Juan")
     private String nombre;
 
-    @Pattern(regexp = "^[A-Za-zÁÉÍÓÚáéíóúÑñ ]{0,50}$", message = "El segundo nombre solo debe contener letras y espacios")
+    @Pattern(regexp = "^(\\p{L}[\\p{L}' -]{0,49})?$",
+            message = "El segundo nombre solo debe contener letras, espacios, apóstrofes o guiones (máximo 50 caracteres)")
     @Schema(example = "Carlos")
     private String segundoNombre;
 
     @NotBlank(message = "El apellido paterno es obligatorio")
-    @Pattern(regexp = "^[A-Za-zÁÉÍÓÚáéíóúÑñ ]{2,50}$", message = "El apellido paterno solo debe contener letras y espacios (2-50 caracteres)")
+    @Pattern(regexp = "^\\p{L}[\\p{L}' -]{1,49}$",
+            message = "El apellido paterno solo debe contener letras, espacios, apóstrofes o guiones (2-50 caracteres)")
     @Schema(example = "Pérez")
     private String apellidoPaterno;
 
     @NotBlank(message = "El apellido materno es obligatorio")
-    @Pattern(regexp = "^[A-Za-zÁÉÍÓÚáéíóúÑñ ]{2,50}$", message = "El apellido materno solo debe contener letras y espacios (2-50 caracteres)")
+    @Pattern(regexp = "^\\p{L}[\\p{L}' -]{1,49}$",
+            message = "El apellido materno solo debe contener letras, espacios, apóstrofes o guiones (2-50 caracteres)")
     @Schema(example = "López")
     private String apellidoMaterno;
 
@@ -66,4 +75,6 @@ public class ClienteActualizaRequest {
     @NotNull(message = "El domicilio es obligatorio")
     @Valid
     private DomicilioDTO domicilio;
+
+
 }
