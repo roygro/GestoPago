@@ -3,6 +3,7 @@ package com.proyecto.servicios.service.Impl;
 import com.proyecto.servicios.entity.sf.Cliente;
 import com.proyecto.servicios.entity.sf.Login;
 import com.proyecto.servicios.exception.cliente.ClienteNoEncontradoException;
+import com.proyecto.servicios.exception.cliente.ClienteYaRegistradoException;
 import com.proyecto.servicios.exception.cliente.ValidacionNegocioException;
 import com.proyecto.servicios.model.cliente.LoginRequest;
 import com.proyecto.servicios.model.cliente.LoginResponse;
@@ -17,6 +18,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.proyecto.servicios.exception.cliente.AutenticacionException;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -42,6 +44,8 @@ public class LoginServiceImpl implements LoginService {
     @Autowired
     private Clock clock;
 
+    private static final String MENSAJE_CREDENCIALES_INVALIDAS = "Usuario o contraseña incorrectos";
+
     /** Minutos de inactividad permitidos antes de apagar la bandera de sesión (por defecto 5). */
     @Value("${sesion.inactividad-minutos:5}")
     private int minutosInactividad;
@@ -56,6 +60,10 @@ public class LoginServiceImpl implements LoginService {
             throw new ValidacionNegocioException("No se pueden crear credenciales para un cliente inactivo");
         }
 
+        if (loginRepository.existsByClienteId(clienteId)) {
+            throw new ClienteYaRegistradoException("El cliente ya tiene credenciales registradas");
+        }
+
         // El usuario debe ser único entre clientes: autenticar() toma el último login de ese usuario.
         if (loginRepository.existsByUsuarioAndClienteIdNot(usuario, clienteId)) {
             throw new ValidacionNegocioException("El usuario ya está en uso por otro cliente");
@@ -68,10 +76,10 @@ public class LoginServiceImpl implements LoginService {
     @Transactional
     public LoginResponse autenticar(LoginRequest request) {
         Login ultimoLogin = loginRepository.findTopByUsuarioOrderByFechaInicioSesionDesc(request.getUsuario())
-                .orElseThrow(() -> new ValidacionNegocioException("El usuario no existe"));
+                .orElseThrow(() -> new AutenticacionException(MENSAJE_CREDENCIALES_INVALIDAS));
 
         if (!passwordEncoder.matches(request.getPassword(), ultimoLogin.getPasswordHash())) {
-            throw new ValidacionNegocioException("La contraseña es incorrecta");
+            throw new AutenticacionException(MENSAJE_CREDENCIALES_INVALIDAS);
         }
 
         Cliente cliente = ultimoLogin.getCliente();

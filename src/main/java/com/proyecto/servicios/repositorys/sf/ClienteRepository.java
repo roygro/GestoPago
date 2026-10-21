@@ -7,9 +7,10 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 @Repository
-public interface ClienteRepository extends JpaRepository<Cliente, Long> {
+public interface ClienteRepository extends JpaRepository<Cliente, Long>,JpaSpecificationExecutor<Cliente> {
 
     Optional<Cliente> findByCurp(String curp);
 
@@ -26,4 +27,6 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
     List<Cliente> findByActivoTrue();
 
     List<Cliente> findByFechaRegistroBetween(LocalDateTime desde, LocalDateTime hasta);
+
+    boolean existsByCorreoElectronicoIgnoreCase(String correoElectronico);
 }

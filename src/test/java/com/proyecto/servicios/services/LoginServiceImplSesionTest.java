@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
+import com.proyecto.servicios.exception.cliente.AutenticacionException;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -160,26 +161,26 @@ class LoginServiceImplSesionTest {
     }
 
     @Test
-    void login_usuarioInexistente_diceQueElUsuarioNoExiste() {
+    void login_usuarioInexistente_respondeCredencialesInvalidas() {
         when(loginRepository.findTopByUsuarioOrderByFechaInicioSesionDesc("nadie")).thenReturn(Optional.empty());
 
-        ValidacionNegocioException ex = assertThrows(ValidacionNegocioException.class,
+        AutenticacionException ex = assertThrows(AutenticacionException.class,
                 () -> service.autenticar(request("nadie", "x")));
 
-        assertEquals("El usuario no existe", ex.getMessage());
+        assertEquals("Usuario o contraseña incorrectos", ex.getMessage());
     }
 
     @Test
-    void login_passwordIncorrecta_diceQueLaContrasenaEsIncorrecta() {
+    void login_passwordIncorrecta_respondeCredencialesInvalidas() {
         Login previo = login(AHORA, true, true);
         previo.setPasswordHash("hash");
         when(loginRepository.findTopByUsuarioOrderByFechaInicioSesionDesc("juan")).thenReturn(Optional.of(previo));
         when(passwordEncoder.matches("mala", "hash")).thenReturn(false);
 
-        ValidacionNegocioException ex = assertThrows(ValidacionNegocioException.class,
+        AutenticacionException ex = assertThrows(AutenticacionException.class,
                 () -> service.autenticar(request("juan", "mala")));
 
-        assertEquals("La contraseña es incorrecta", ex.getMessage());
+        assertEquals("Usuario o contraseña incorrectos", ex.getMessage());
         verify(loginRepository, never()).save(any(Login.class));
     }
 
@@ -203,10 +204,10 @@ class LoginServiceImplSesionTest {
         when(loginRepository.findTopByUsuarioOrderByFechaInicioSesionDesc("juan")).thenReturn(Optional.of(previo));
         when(passwordEncoder.matches("mala", "hash")).thenReturn(false);
 
-        ValidacionNegocioException ex = assertThrows(ValidacionNegocioException.class,
+        AutenticacionException ex = assertThrows(AutenticacionException.class,
                 () -> service.autenticar(request("juan", "mala")));
 
-        assertEquals("La contraseña es incorrecta", ex.getMessage());
+        assertEquals("Usuario o contraseña incorrectos", ex.getMessage());
     }
 
     @Test

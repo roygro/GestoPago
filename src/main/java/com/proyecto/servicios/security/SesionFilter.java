@@ -1,7 +1,9 @@
 package com.proyecto.servicios.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.proyecto.servicios.model.GenericResponse;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.proyecto.servicios.exception.ErrorResponse;
 import com.proyecto.servicios.service.LoginService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -32,7 +34,10 @@ import java.io.IOException;
 @Slf4j
 public class SesionFilter extends OncePerRequestFilter {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
     private static final String PREFIJO_BEARER = "Bearer ";
 
     private final JwtUtil jwtUtil;
@@ -101,9 +106,7 @@ public class SesionFilter extends OncePerRequestFilter {
     }
 
     private void responderNoAutorizado(HttpServletResponse response, String mensaje) throws IOException {
-        GenericResponse cuerpo = new GenericResponse();
-        cuerpo.setCodigo(HttpServletResponse.SC_UNAUTHORIZED);
-        cuerpo.setMensaje(mensaje);
+        ErrorResponse cuerpo = new ErrorResponse(HttpServletResponse.SC_UNAUTHORIZED, mensaje);
 
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setHeader("WWW-Authenticate", "Bearer");

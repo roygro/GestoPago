@@ -1,6 +1,6 @@
 package com.proyecto.servicios.config;
 
-import com.proyecto.servicios.model.GenericResponse;
+import com.proyecto.servicios.exception.ErrorResponse;
 import com.proyecto.servicios.security.RutasPublicas;
 import io.swagger.v3.core.converter.ModelConverters;
 import io.swagger.v3.oas.models.Components;
@@ -33,12 +33,13 @@ public class OpenApi {
                                 .type(SecurityScheme.Type.HTTP)
                                 .scheme("bearer")
                                 .bearerFormat("JWT")
-                                .description("Pega aquí el jwtToken que devuelve POST /auth/login")));
+                                .description("Pega aquí el jwtToken que devuelve POST /auth/login (campo datos.jwtToken)")));
     }
 
     /**
      * A TODOS los endpoints les documenta 400 y 500 (y 401 + candado a los protegidos) con el
-     * formato { codigo, mensaje }. Así Swagger ya no muestra "Undocumented" en esas respuestas.
+     * formato de error { codigo, mensaje, errores, timestamp }. Así Swagger ya no muestra
+     * "Undocumented" en esas respuestas.
      */
     @Bean
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -47,7 +48,7 @@ public class OpenApi {
             if (openApi.getComponents() == null) {
                 openApi.setComponents(new Components());
             }
-            Map<String, Schema> esquemas = ModelConverters.getInstance().read(GenericResponse.class);
+            Map<String, Schema> esquemas = ModelConverters.getInstance().read(ErrorResponse.class);
             esquemas.forEach((nombre, esquema) -> {
                 if (openApi.getComponents().getSchemas() == null
                         || !openApi.getComponents().getSchemas().containsKey(nombre)) {
@@ -56,7 +57,7 @@ public class OpenApi {
             });
 
             Schema<Object> referencia = new Schema<>();
-            referencia.set$ref("#/components/schemas/GenericResponse");
+            referencia.set$ref("#/components/schemas/ErrorResponse");
 
             if (openApi.getPaths() == null) {
                 return;

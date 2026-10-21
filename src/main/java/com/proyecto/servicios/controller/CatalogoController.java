@@ -1,14 +1,13 @@
 package com.proyecto.servicios.controller;
 
+import com.proyecto.servicios.model.RespuestaApi;
 import com.proyecto.servicios.model.cliente.EstadoCivilResponse;
 import com.proyecto.servicios.model.cliente.NacionalidadResponse;
 import com.proyecto.servicios.service.CatalogoService;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,22 +24,22 @@ public class CatalogoController {
     private CatalogoService catalogoService;
 
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK",
-                    content = @Content(mediaType = "application/json",
-                            array = @ArraySchema(schema = @Schema(implementation = EstadoCivilResponse.class))))
+            @ApiResponse(responseCode = "200", description = "OK")
     })
     @GetMapping(value = "/estado-civil", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<List<EstadoCivilResponse>> consultarEstadosCiviles() {
-        return ResponseEntity.ok(catalogoService.consultarEstadosCiviles());
+    public ResponseEntity<RespuestaApi<List<EstadoCivilResponse>>> consultarEstadosCiviles() {
+        List<EstadoCivilResponse> estados = catalogoService.consultarEstadosCiviles();
+        return ResponseEntity.ok(RespuestaApi.de(HttpStatus.OK,
+                "Catálogo de estados civiles consultado correctamente", estados));
     }
 
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK",
-                    content = @Content(mediaType = "application/json",
-                            array = @ArraySchema(schema = @Schema(implementation = NacionalidadResponse.class))))
+            @ApiResponse(responseCode = "200", description = "OK")
     })
     @GetMapping(value = "/nacionalidades", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<List<NacionalidadResponse>> consultarNacionalidades() {
-        return ResponseEntity.ok(catalogoService.consultarNacionalidades());
+    public ResponseEntity<RespuestaApi<List<NacionalidadResponse>>> consultarNacionalidades() {
+        List<NacionalidadResponse> nacionalidades = catalogoService.consultarNacionalidades();
+        return ResponseEntity.ok(RespuestaApi.de(HttpStatus.OK,
+                "Catálogo de nacionalidades consultado correctamente", nacionalidades));
     }
 }

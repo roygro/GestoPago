@@ -5,6 +5,7 @@ import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -28,9 +29,11 @@ public class LoginRequest {
     private String password;
 
     // Datos biométricos opcionales (reconocimiento facial)
+    @Positive(message = "La distancia interocular debe ser mayor a cero")
     @Schema(description = "Opcional", example = "62.5")
     private Double distanciaInterocular;
 
+    @Positive(message = "El ancho del rostro debe ser mayor a cero")
     @Schema(description = "Opcional", example = "140.0")
     private Double anchoRostro;
 
@@ -40,9 +43,11 @@ public class LoginRequest {
     @Schema(description = "Opcional, de 0 a 100", example = "95.50")
     private BigDecimal confianzaDeteccion;
 
+    @Positive(message = "El número de puntos de referencia debe ser mayor a cero")
     @Schema(description = "Opcional", example = "68")
     private Integer numPuntosReferencia;
 
+    @Size(max = 50000, message = "La plantilla facial excede el tamaño permitido")
     @Schema(description = "Opcional")
     private String plantillaFacial;
 }

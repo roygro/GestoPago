@@ -1,6 +1,8 @@
 package com.proyecto.servicios.controller;
 
-import com.proyecto.servicios.model.GenericResponse;
+import com.proyecto.servicios.exception.ErrorResponse;
+import com.proyecto.servicios.model.RespuestaApi;
+import com.proyecto.servicios.model.producto.ProductoDTO;
 import com.proyecto.servicios.model.producto.ProductoListResponse;
 import com.proyecto.servicios.service.ProductoService;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -13,6 +15,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+import java.util.Map;
+
 @RestController
 public class ProductoController {
 
@@ -23,13 +28,15 @@ public class ProductoController {
     }
 
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = ProductoListResponse.class))),
-            @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(schema = @Schema(implementation = GenericResponse.class))),
-            @ApiResponse(responseCode = "502", description = "Bad Gateway", content = @Content(schema = @Schema(implementation = GenericResponse.class))),
-            @ApiResponse(responseCode = "504", description = "Gateway Timeout", content = @Content(schema = @Schema(implementation = GenericResponse.class)))
+            @ApiResponse(responseCode = "200", description = "OK"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "502", description = "Bad Gateway", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "504", description = "Gateway Timeout", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping(value = "/productos", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ProductoListResponse> obtenerProductos() {
-        return new ResponseEntity<>(productoService.obtenerListaProductos(), HttpStatus.OK);
+    public ResponseEntity<RespuestaApi<Map<String, List<ProductoDTO>>>> obtenerProductos() {
+        ProductoListResponse resultado = productoService.obtenerListaProductos();
+        return ResponseEntity.ok(RespuestaApi.de(HttpStatus.OK,
+                "Productos consultados correctamente", resultado.getProductos()));
     }
 }

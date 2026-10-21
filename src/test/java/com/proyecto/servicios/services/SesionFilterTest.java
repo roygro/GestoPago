@@ -51,7 +51,7 @@ class SesionFilterTest {
         String cuerpo = res.getContentAsString();
         assertTrue(cuerpo.contains("\"codigo\":401"));
         assertTrue(cuerpo.contains("\"mensaje\""));
-        assertFalse(cuerpo.contains("timestamp"), "la respuesta solo lleva codigo y mensaje");
+        assertTrue(cuerpo.contains("\"timestamp\""), "la respuesta lleva codigo, mensaje y timestamp");
         if (mensajeEsperado != null) {
             assertTrue(cuerpo.contains(mensajeEsperado), "mensaje esperado: " + mensajeEsperado + " | real: " + cuerpo);
         }

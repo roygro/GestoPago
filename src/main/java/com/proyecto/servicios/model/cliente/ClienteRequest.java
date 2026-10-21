@@ -2,6 +2,8 @@ package com.proyecto.servicios.model.cliente;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.time.format.DateTimeFormatter;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -19,21 +21,25 @@ import java.time.LocalDate;
 public class ClienteRequest {
 
     @NotBlank(message = "El nombre es obligatorio")
-    @Pattern(regexp = "^[A-Za-zÁÉÍÓÚáéíóúÑñ ]{2,50}$", message = "El nombre solo debe contener letras y espacios (2-50 caracteres)")
+    @Pattern(regexp = "^\\p{L}[\\p{L}' -]{1,49}$",
+            message = "El nombre solo debe contener letras, espacios, apóstrofes o guiones (2-50 caracteres)")
     @Schema(example = "Juan")
     private String nombre;
 
-    @Pattern(regexp = "^[A-Za-zÁÉÍÓÚáéíóúÑñ ]{0,50}$", message = "El segundo nombre solo debe contener letras y espacios")
+    @Pattern(regexp = "^(\\p{L}[\\p{L}' -]{0,49})?$",
+            message = "El segundo nombre solo debe contener letras, espacios, apóstrofes o guiones (máximo 50 caracteres)")
     @Schema(example = "Carlos")
     private String segundoNombre;
 
     @NotBlank(message = "El apellido paterno es obligatorio")
-    @Pattern(regexp = "^[A-Za-zÁÉÍÓÚáéíóúÑñ ]{2,50}$", message = "El apellido paterno solo debe contener letras y espacios (2-50 caracteres)")
+    @Pattern(regexp = "^\\p{L}[\\p{L}' -]{1,49}$",
+            message = "El apellido paterno solo debe contener letras, espacios, apóstrofes o guiones (2-50 caracteres)")
     @Schema(example = "Pérez")
     private String apellidoPaterno;
 
     @NotBlank(message = "El apellido materno es obligatorio")
-    @Pattern(regexp = "^[A-Za-zÁÉÍÓÚáéíóúÑñ ]{2,50}$", message = "El apellido materno solo debe contener letras y espacios (2-50 caracteres)")
+    @Pattern(regexp = "^\\p{L}[\\p{L}' -]{1,49}$",
+            message = "El apellido materno solo debe contener letras, espacios, apóstrofes o guiones (2-50 caracteres)")
     @Schema(example = "López")
     private String apellidoMaterno;
 
@@ -75,9 +81,10 @@ public class ClienteRequest {
     private String estadoCivil;
 
     @NotBlank(message = "El correo electrónico es obligatorio")
-    @Email(message = "El correo electrónico no tiene un formato válido")
+    @Email(message = "El correo electrónico no tiene un formato válido")   // <-- nueva línea
+    @Pattern(regexp = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$",
+            message = "El correo electrónico no tiene un formato válido (ejemplo: usuario@dominio.com)")
     @Size(max = 100, message = "El correo electrónico no debe exceder 100 caracteres")
-    @Schema(example = "juan.perez@correo.com")
     private String correoElectronico;
 
     @NotBlank(message = "El teléfono móvil es obligatorio")
@@ -108,4 +115,34 @@ public class ClienteRequest {
     @NotNull(message = "El domicilio es obligatorio")
     @Valid
     private DomicilioDTO domicilio;
+
+    private static final DateTimeFormatter FORMATO_YYMMDD = DateTimeFormatter.ofPattern("yyMMdd");
+
+    @JsonIgnore
+    @Schema(hidden = true)
+    @AssertTrue(message = "La CURP no coincide con la fecha de nacimiento")
+    public boolean isCurpCoincideConFechaNacimiento() {
+        if (curp == null || curp.length() < 10 || fechaNacimiento == null) {
+            return true; // los demás campos ya reportan sus propios errores
+        }
+        String fechaEnCurp = curp.substring(4, 10);
+        if (!fechaEnCurp.matches("\\d{6}")) {
+            return true; // el @Pattern de la CURP ya reporta ese formato inválido
+        }
+        return fechaEnCurp.equals(fechaNacimiento.format(FORMATO_YYMMDD));
+    }
+
+    @JsonIgnore
+    @Schema(hidden = true)
+    @AssertTrue(message = "El RFC no coincide con la fecha de nacimiento")
+    public boolean isRfcCoincideConFechaNacimiento() {
+        if (rfc == null || rfc.length() != 13 || fechaNacimiento == null) {
+            return true; // solo personas físicas (13 caracteres) llevan la fecha en esa posición
+        }
+        String fechaEnRfc = rfc.substring(4, 10);
+        if (!fechaEnRfc.matches("\\d{6}")) {
+            return true;
+        }
+        return fechaEnRfc.equals(fechaNacimiento.format(FORMATO_YYMMDD));
+    }
 }
