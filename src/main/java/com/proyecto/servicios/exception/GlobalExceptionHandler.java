@@ -127,6 +127,12 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_GATEWAY, "El servicio de productos no devolvió información");
     }
 
+    @ExceptionHandler(PagoFallidoException.class)
+    public ResponseEntity<ErrorResponse> manejaPagoFallido(PagoFallidoException ex) {
+        log.warn("Fallo en la transacción de pago: {}", ex.getMessage());
+        return build(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
     @ExceptionHandler(ProductoIntegrationException.class)
     public ResponseEntity<ErrorResponse> manejaProductoIntegracion(ProductoIntegrationException ex) {
         log.error("Error de integración con servicio de productos: {}", ex.getMessage(), ex);
