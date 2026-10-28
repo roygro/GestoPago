@@ -37,6 +37,10 @@ public final class RutasPublicas {
         if ("GET".equalsIgnoreCase(metodo) && MATCHER.match("/catalogos/**", ruta)) {
             return true;
         }
+        // Transacciones de pago (GestoPago) - Validadas mediante NumCuenta, Cliente Activo, Saldo y 2FA
+        if ("POST".equalsIgnoreCase(metodo) && (MATCHER.match("/pagos", ruta) || MATCHER.match("/pagos/**", ruta))) {
+            return true;
+        }
         return PATRONES.stream().anyMatch(patron -> MATCHER.match(patron, ruta));
     }
 }
