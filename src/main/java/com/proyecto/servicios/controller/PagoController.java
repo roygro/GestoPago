@@ -15,11 +15,11 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import com.proyecto.servicios.model.pago.Solicitud2faRequest;
-import com.proyecto.servicios.model.pago.Solicitud2faResponse;
+import com.proyecto.servicios.model.pago.*;
 import com.proyecto.servicios.service.TwoFactorService;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -77,5 +77,29 @@ public class PagoController {
     public ResponseEntity<RespuestaApi<PagoResponse>> conciliarTransaccion(@PathVariable("upc") String upc) {
         PagoResponse respuesta = pagoService.conciliarTransaccion(upc);
         return ResponseEntity.ok(RespuestaApi.de(HttpStatus.OK, "Conciliación procesada correctamente", respuesta));
+    }
+
+    @Operation(summary = "Validar referencia de servicio antes del pago",
+            description = "Verifica el formato, longitud y tipo de referencia requerido por el proveedor para el servicio seleccionado.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Resultado de la validación de referencia"),
+            @ApiResponse(responseCode = "400", description = "Parámetros inválidos", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PostMapping(value = "/validar-referencia", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<RespuestaApi<ValidarReferenciaResponse>> validarReferencia(@Valid @RequestBody ValidarReferenciaRequest request) {
+        ValidarReferenciaResponse resultado = pagoService.validarReferencia(request);
+        return ResponseEntity.ok(RespuestaApi.de(HttpStatus.OK, resultado.getMensaje(), resultado));
+    }
+
+    @Operation(summary = "Consultar historial de transacciones de pago",
+            description = "Devuelve la lista de pagos realizados asociados a las cuentas del usuario autenticado.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Historial consultado correctamente"),
+            @ApiResponse(responseCode = "401", description = "No autenticado", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping(value = "/historial", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<RespuestaApi<java.util.List<HistorialPagoDTO>>> consultarHistorial() {
+        java.util.List<HistorialPagoDTO> historial = pagoService.consultarHistorial();
+        return ResponseEntity.ok(RespuestaApi.de(HttpStatus.OK, "Historial de pagos consultado correctamente", historial));
     }
 }

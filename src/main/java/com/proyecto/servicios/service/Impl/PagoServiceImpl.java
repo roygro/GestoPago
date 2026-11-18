@@ -31,7 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -433,5 +435,118 @@ public class PagoServiceImpl implements PagoService {
 
     private String generarUpcUnico() {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<HistorialPagoDTO> consultarHistorial() {
+        Long clienteId = usuarioAutenticado.obtenerClienteId();
+        List<Cuenta> cuentas = cuentaRepository.findByClienteId(clienteId);
+        if (cuentas.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<String> numerosCuenta = cuentas.stream()
+                .map(Cuenta::getNumeroCuenta)
+                .filter(Objects::nonNull)
+                .toList();
+
+        if (numerosCuenta.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<TransaccionPago> transacciones = transaccionPagoRepository
+                .findByNumeroCuentaInOrderByFechaCreacionDesc(numerosCuenta);
+
+        return transacciones.stream()
+                .map(this::mapearHistorial)
+                .toList();
+    }
+
+    private HistorialPagoDTO mapearHistorial(TransaccionPago tx) {
+        return HistorialPagoDTO.builder()
+                .id(tx.getId())
+                .numeroCuenta(tx.getNumeroCuenta())
+                .idServicio(tx.getIdServicio())
+                .idProducto(tx.getIdProducto())
+                .monto(tx.getMonto())
+                .telefono(tx.getTelefono())
+                .referencia(tx.getReferencia())
+                .upc(tx.getUpc())
+                .idTxProveedor(tx.getIdTxProveedor())
+                .numAutorizacion(tx.getNumAutorizacion())
+                .codigoRespuesta(tx.getCodigoRespuesta())
+                .mensajeRespuesta(tx.getMensajeRespuesta())
+                .estatus(tx.getEstatus())
+                .fechaCreacion(tx.getFechaCreacion())
+                .build();
+    }
+
+    @Override
+    public ValidarReferenciaResponse validarReferencia(ValidarReferenciaRequest request) {
+        ProductoListResponse listResponse = productoService.obtenerListaProductos();
+        ProductoDTO productoEncontrado = null;
+        if (listResponse != null && listResponse.getProductos() != null) {
+            for (List<ProductoDTO> productos : listResponse.getProductos().values()) {
+                for (ProductoDTO p : productos) {
+                    if (Objects.equals(p.getIdProducto(), request.getIdProducto())
+                            && Objects.equals(p.getIdServicio(), request.getIdServicio())) {
+                        productoEncontrado = p;
+                        break;
+                    }
+                }
+                if (productoEncontrado != null) break;
+            }
+        }
+
+        String ref = request.getReferencia() != null && !request.getReferencia().isBlank()
+                ? request.getReferencia().trim()
+                : (request.getTelefono() != null ? request.getTelefono().trim() : "");
+
+        if (ref.isBlank()) {
+            return ValidarReferenciaResponse.builder()
+                    .valida(false)
+                    .mensaje("La referencia o número telefónico no puede estar vacío")
+                    .referenciaIngresada(ref)
+                    .build();
+        }
+
+        String tipoRef = productoEncontrado != null && productoEncontrado.getTipoReferencia() != null
+                ? productoEncontrado.getTipoReferencia().toUpperCase()
+                : "REFERENCIA";
+
+        if ("TELEFONO".equals(tipoRef) || (productoEncontrado != null && "TAE".equalsIgnoreCase(productoEncontrado.getTipoFront()))) {
+            if (!ref.matches("^[0-9]{10}$")) {
+                return ValidarReferenciaResponse.builder()
+                        .valida(false)
+                        .mensaje("El número telefónico debe contener exactamente 10 dígitos numéricos")
+                        .servicio(productoEncontrado != null ? productoEncontrado.getServicio() : null)
+                        .producto(productoEncontrado != null ? productoEncontrado.getNombreProducto() : null)
+                        .tipoReferencia(tipoRef)
+                        .referenciaIngresada(ref)
+                        .build();
+            }
+        } else {
+            if (ref.length() < 5 || ref.length() > 40) {
+                return ValidarReferenciaResponse.builder()
+                        .valida(false)
+                        .mensaje("La referencia debe tener entre 5 y 40 caracteres numéricos o alfanuméricos")
+                        .servicio(productoEncontrado != null ? productoEncontrado.getServicio() : null)
+                        .producto(productoEncontrado != null ? productoEncontrado.getNombreProducto() : null)
+                        .tipoReferencia(tipoRef)
+                        .referenciaIngresada(ref)
+                        .build();
+            }
+        }
+
+        return ValidarReferenciaResponse.builder()
+                .valida(true)
+                .mensaje("Referencia validada exitosamente. Lista para pagar.")
+                .servicio(productoEncontrado != null ? productoEncontrado.getServicio() : "Servicio")
+                .producto(productoEncontrado != null ? productoEncontrado.getNombreProducto() : "Producto")
+                .tipoReferencia(tipoRef)
+                .montoSugerido(productoEncontrado != null ? productoEncontrado.getPrecio() : null)
+                .referenciaIngresada(ref)
+                .build();
     }
 }

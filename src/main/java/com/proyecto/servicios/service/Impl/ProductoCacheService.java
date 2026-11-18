@@ -53,6 +53,18 @@ public class ProductoCacheService {
                 });
     }
 
+    /**
+     * Respaldo de emergencia: devuelve el caché de base de datos sin importar si el TTL expiró,
+     * en caso de que el proveedor externo esté caído o no responda.
+     */
+    public Optional<Map<String, List<ProductoDTO>>> obtenerCualquierCacheRespaldo() {
+        return productoCacheRepository.findByCacheKey(CACHE_KEY)
+                .map(cache -> {
+                    log.warn("Usando catálogo en caché de respaldo histórico (el servicio externo no respondió)");
+                    return deserializar(cache.getValor());
+                });
+    }
+
     public void guardarEnCache(Map<String, List<ProductoDTO>> productosAgrupados) {
         String json = serializar(productosAgrupados);
 

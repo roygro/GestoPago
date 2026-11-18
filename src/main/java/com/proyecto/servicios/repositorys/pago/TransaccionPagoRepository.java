@@ -15,6 +15,10 @@ public interface TransaccionPagoRepository extends JpaRepository<TransaccionPago
 
     Optional<TransaccionPago> findByUpc(String upc);
 
+    java.util.List<TransaccionPago> findByNumeroCuentaInOrderByFechaCreacionDesc(java.util.List<String> numerosCuenta);
+
+    java.util.List<TransaccionPago> findByNumeroCuentaOrderByFechaCreacionDesc(String numeroCuenta);
+
     @Query("SELECT CASE WHEN COUNT(t) > 0 THEN true ELSE false END FROM TransaccionPago t " +
             "WHERE t.numeroCuenta = :numeroCuenta " +
             "AND t.idServicio = :idServicio " +

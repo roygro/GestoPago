@@ -328,4 +328,138 @@ class PagoServiceImplTest {
 
         verify(saldoRepository, times(1)).save(any(Saldo.class));
     }
+
+    @Test
+    @DisplayName("Conciliación rechazada con confirmTx (Código 70) marca transacción como FALLIDA y lanza PagoFallidoException")
+    void conciliarTransaccionNoAplicada() {
+        String upc = "7d3f6cb2b5";
+        String numCuenta = "1234567890123456";
+
+        TransaccionPago tx = new TransaccionPago();
+        tx.setUpc(upc);
+        tx.setNumeroCuenta(numCuenta);
+        tx.setMonto(new BigDecimal("10.00"));
+        tx.setPayloadCifrado("payloadDummy");
+        tx.setEstatus("PENDIENTE_CONCILIACION");
+
+        when(transaccionPagoRepository.findByUpc(upc)).thenReturn(Optional.of(tx));
+
+        String xmlConfirm = "<?xml version='1.0' encoding='UTF-8'?>"
+                + "<RESPONSE>"
+                + "    <MENSAJE>"
+                + "        <CODIGO>70</CODIGO>"
+                + "        <TEXTO>La transaccion no fue aplicada</TEXTO>"
+                + "    </MENSAJE>"
+                + "</RESPONSE>";
+
+        when(gestoPagoSendTxClient.confirmTx(anyString(), anyString())).thenReturn(xmlConfirm);
+
+        assertThrows(PagoFallidoException.class, () -> pagoService.conciliarTransaccion(upc));
+        verify(saldoRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Conciliación de transacción ya exitosa no vuelve a procesar")
+    void conciliarTransaccionYaExitosa() {
+        String upc = "7d3f6cb2b5";
+        TransaccionPago tx = new TransaccionPago();
+        tx.setUpc(upc);
+        tx.setEstatus("EXITOSA");
+        tx.setIdTxProveedor("99999");
+        tx.setNumAutorizacion("88888");
+        tx.setMensajeRespuesta("Operacion previa exitosa");
+        tx.setFechaCreacion(LocalDateTime.now());
+
+        when(transaccionPagoRepository.findByUpc(upc)).thenReturn(Optional.of(tx));
+
+        PagoResponse respuesta = pagoService.conciliarTransaccion(upc);
+
+        assertNotNull(respuesta);
+        assertEquals("99999", respuesta.getIdTx());
+        verify(gestoPagoSendTxClient, never()).confirmTx(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Conciliación de transacción inexistente lanza ValidacionNegocioException")
+    void conciliarTransaccionInexistente() {
+        when(transaccionPagoRepository.findByUpc("no_existe")).thenReturn(Optional.empty());
+
+        assertThrows(ValidacionNegocioException.class, () ->
+                pagoService.conciliarTransaccion("no_existe"));
+    }
+
+    @Test
+    @DisplayName("procesarPago detecta transacción duplicada reciente y la rechaza")
+    void procesarPago_duplicadaReciente() {
+        String numCuenta = "1234567890123456";
+        Cuenta cuenta = crearCuentaValida(numCuenta, new BigDecimal("100.00"));
+        when(cuentaRepository.findByNumeroCuenta(numCuenta)).thenReturn(Optional.of(cuenta));
+        when(transaccionPagoRepository.existeTransaccionRecienteDuplicada(eq(numCuenta), eq(133), eq(582), any(), any(), any(), any()))
+                .thenReturn(true);
+
+        PagoRequest request = PagoRequest.builder()
+                .numCuenta(numCuenta)
+                .idProd(582)
+                .idSer(133)
+                .monto(new BigDecimal("10.00"))
+                .twoFactorCode("123456")
+                .build();
+
+        assertThrows(ValidacionNegocioException.class, () -> pagoService.procesarPago(request));
+    }
+
+    @Test
+    @DisplayName("procesarPago rechaza cuando cuenta está INACTIVA")
+    void procesarPago_cuentaInactiva() {
+        String numCuenta = "1234567890123456";
+        Cuenta cuenta = crearCuentaValida(numCuenta, new BigDecimal("100.00"));
+        cuenta.setEstatus("INACTIVA");
+        when(cuentaRepository.findByNumeroCuenta(numCuenta)).thenReturn(Optional.of(cuenta));
+
+        PagoRequest request = PagoRequest.builder()
+                .numCuenta(numCuenta)
+                .idProd(582)
+                .idSer(133)
+                .monto(new BigDecimal("10.00"))
+                .twoFactorCode("123456")
+                .build();
+
+        assertThrows(ValidacionNegocioException.class, () -> pagoService.procesarPago(request));
+    }
+
+    @Test
+    @DisplayName("procesarPago rechaza cuando el producto no coincide con el catálogo")
+    void procesarPago_productoInexistente() {
+        String numCuenta = "1234567890123456";
+        Cuenta cuenta = crearCuentaValida(numCuenta, new BigDecimal("100.00"));
+        when(cuentaRepository.findByNumeroCuenta(numCuenta)).thenReturn(Optional.of(cuenta));
+
+        PagoRequest request = PagoRequest.builder()
+                .numCuenta(numCuenta)
+                .idProd(999) // no existe en catálogo
+                .idSer(133)
+                .monto(new BigDecimal("10.00"))
+                .twoFactorCode("123456")
+                .build();
+
+        assertThrows(ValidacionNegocioException.class, () -> pagoService.procesarPago(request));
+    }
+
+    @Test
+    @DisplayName("procesarPago rechaza cuando el monto enviado no coincide con el precio del catálogo")
+    void procesarPago_montoAlterado() {
+        String numCuenta = "1234567890123456";
+        Cuenta cuenta = crearCuentaValida(numCuenta, new BigDecimal("100.00"));
+        when(cuentaRepository.findByNumeroCuenta(numCuenta)).thenReturn(Optional.of(cuenta));
+
+        PagoRequest request = PagoRequest.builder()
+                .numCuenta(numCuenta)
+                .idProd(582)
+                .idSer(133)
+                .monto(new BigDecimal("99.00")) // catálogo dice 10.00
+                .twoFactorCode("123456")
+                .build();
+
+        assertThrows(ValidacionNegocioException.class, () -> pagoService.procesarPago(request));
+    }
 }
