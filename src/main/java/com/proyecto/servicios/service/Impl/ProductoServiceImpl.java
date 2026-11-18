@@ -61,27 +61,29 @@ public class ProductoServiceImpl implements ProductoService {
             Map<String, List<ProductoDTO>> productosAgrupados = consultarYActualizarCache();
             return construirRespuesta(productosAgrupados, "Éxito");
 
-        } catch (FeignException.Unauthorized | FeignException.Forbidden ex) {
-            log.error("Error de autenticación al consumir el servicio de productos. status={}", ex.status());
-            throw new ProductoAuthenticationException(
-                    "No fue posible autenticar la petición con el servicio de productos", ex);
-
-        } catch (RetryableException ex) {
-            log.error("Timeout o error de comunicación al consumir el servicio de productos: {}", ex.getMessage());
-            throw new ProductoTimeoutException(
-                    "Tiempo de espera agotado o error de conexión con el servicio de productos", ex);
-
-        } catch (FeignException ex) {
-            log.error("El servicio de productos respondió con un error. status={}", ex.status());
-            throw new ProductoIntegrationException(
-                    "El servicio de productos respondió con un error. status=" + ex.status(), ex);
-
-        } catch (ProductoIntegrationException ex) {
-            throw ex;
-
         } catch (Exception ex) {
-            log.error("Error inesperado al consumir el servicio de productos: {}", ex.getMessage(), ex);
-            throw new ProductoIntegrationException("Error inesperado al consumir el servicio de productos", ex);
+            log.warn("Falla al consultar el proveedor externo de productos ({}). Intentando respaldo en caché histórico...", ex.getMessage());
+            Optional<Map<String, List<ProductoDTO>>> fallback = productoCacheService.obtenerCualquierCacheRespaldo();
+            if (fallback.isPresent()) {
+                log.info("Productos obtenidos satisfactoriamente desde respaldo de emergencia en base de datos");
+                return construirRespuesta(fallback.get(), "Éxito (Respaldo Caché)");
+            }
+
+            if (ex instanceof FeignException.Unauthorized || ex instanceof FeignException.Forbidden) {
+                log.error("Error de autenticación al consumir el servicio de productos. status={}", ((FeignException) ex).status());
+                throw new ProductoAuthenticationException("No fue posible autenticar la petición con el servicio de productos", ex);
+            } else if (ex instanceof RetryableException) {
+                log.error("Timeout o error de comunicación al consumir el servicio de productos: {}", ex.getMessage());
+                throw new ProductoTimeoutException("Tiempo de espera agotado o error de conexión con el servicio de productos", ex);
+            } else if (ex instanceof FeignException) {
+                log.error("El servicio de productos respondió con un error. status={}", ((FeignException) ex).status());
+                throw new ProductoIntegrationException("El servicio de productos respondió con un error. status=" + ((FeignException) ex).status(), ex);
+            } else if (ex instanceof ProductoIntegrationException pie) {
+                throw pie;
+            } else {
+                log.error("Error inesperado al consumir el servicio de productos: {}", ex.getMessage(), ex);
+                throw new ProductoIntegrationException("Error inesperado al consumir el servicio de productos", ex);
+            }
 
         } finally {
             log.info(LOG_FIN);

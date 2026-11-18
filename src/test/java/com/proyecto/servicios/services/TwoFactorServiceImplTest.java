@@ -95,4 +95,45 @@ class TwoFactorServiceImplTest {
 
         assertTrue(ex.getMessage().contains("incorrecto"));
     }
+
+    @Test
+    @DisplayName("Código 2FA se bloquea tras 3 intentos fallidos consecutivos")
+    void codigoBloqueadoTrasTresIntentos() {
+        String numCuenta = "7898384477103410";
+        Cuenta cuenta = crearCuenta(numCuenta, "ariana.perez@empresademo.com", true, true);
+        when(cuentaRepository.findByNumeroCuenta(numCuenta)).thenReturn(Optional.of(cuenta));
+
+        twoFactorService.generarYEnviarCodigo(numCuenta);
+
+        assertThrows(ValidacionNegocioException.class, () -> twoFactorService.validarCodigo(numCuenta, "000001"));
+        assertThrows(ValidacionNegocioException.class, () -> twoFactorService.validarCodigo(numCuenta, "000002"));
+        ValidacionNegocioException ex = assertThrows(ValidacionNegocioException.class,
+                () -> twoFactorService.validarCodigo(numCuenta, "000003"));
+
+        assertTrue(ex.getMessage().contains("excedido") || ex.getMessage().contains("máximo"));
+    }
+
+    @Test
+    @DisplayName("Generar código lanza excepción si cliente no tiene correo registrado")
+    void generarCodigoSinCorreoLanzaExcepcion() {
+        String numCuenta = "7898384477103410";
+        Cuenta cuenta = crearCuenta(numCuenta, null, true, true);
+        when(cuentaRepository.findByNumeroCuenta(numCuenta)).thenReturn(Optional.of(cuenta));
+
+        assertThrows(ValidacionNegocioException.class, () -> twoFactorService.generarYEnviarCodigo(numCuenta));
+    }
+
+    @Test
+    @DisplayName("Envío de correo intenta JavaMailSender cuando mailFrom está configurado")
+    void envioCorreoConMailSender() {
+        String numCuenta = "7898384477103410";
+        Cuenta cuenta = crearCuenta(numCuenta, "prueba@correo.com", true, true);
+        when(cuentaRepository.findByNumeroCuenta(numCuenta)).thenReturn(Optional.of(cuenta));
+
+        org.springframework.test.util.ReflectionTestUtils.setField(twoFactorService, "mailFrom", "admin@gmail.com");
+
+        Solicitud2faResponse respuesta = twoFactorService.generarYEnviarCodigo(numCuenta);
+        assertNotNull(respuesta);
+        verify(mailSender, times(1)).send(any(org.springframework.mail.SimpleMailMessage.class));
+    }
 }

@@ -1,26 +1,32 @@
 package com.proyecto.servicios.service;
 
+import com.proyecto.servicios.model.pago.HistorialPagoDTO;
 import com.proyecto.servicios.model.pago.PagoRequest;
 import com.proyecto.servicios.model.pago.PagoResponse;
+import com.proyecto.servicios.model.pago.ValidarReferenciaRequest;
+import com.proyecto.servicios.model.pago.ValidarReferenciaResponse;
+
+import java.util.List;
 
 public interface PagoService {
 
     /**
-     * Procesa una transacción de pago de servicio o recarga según el flujo completo:
-     * 1. Validar Cliente Activo.
-     * 2. Validar Saldo suficiente.
-     * 3. Validar código 2FA.
-     * 4. Construir payload SendTx.
-     * 5. Cifrar con AES-256 (AesEncryptionHelper).
-     * 6. Obtener Bearer Token de GestoPago.
-     * 7. Enviar la transacción cifrada.
-     * 8. Si la respuesta es '01' (Pago Exitoso), debitar el saldo en BD y confirmar.
+     * Procesa una transacción de pago de servicio o recarga según el flujo completo.
      */
     PagoResponse procesarPago(PagoRequest request);
 
     /**
-     * Concilia una transacción cuyo resultado fue indeterminado por timeout o corte de red,
-     * consumiendo el método confirmTx.do de GestoPago.
+     * Concilia una transacción cuyo resultado fue indeterminado por timeout o corte de red.
      */
     PagoResponse conciliarTransaccion(String upc);
+
+    /**
+     * Valida el formato y compatibilidad de una referencia antes de permitir el pago.
+     */
+    ValidarReferenciaResponse validarReferencia(ValidarReferenciaRequest request);
+
+    /**
+     * Consulta el historial de pagos asociados a las cuentas del cliente autenticado.
+     */
+    List<HistorialPagoDTO> consultarHistorial();
 }
