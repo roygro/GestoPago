@@ -105,7 +105,9 @@ public class PagoServiceImpl implements PagoService {
         String horaLocal = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
         String telefono = (request.getTelefono() != null && !request.getTelefono().isBlank())
                 ? request.getTelefono().trim()
-                : "1111111111";
+                : (request.getReference() != null && request.getReference().trim().length() == 10
+                        ? request.getReference().trim()
+                        : "1111111111");
 
         SendTxPayloadDTO payloadDto = SendTxPayloadDTO.builder()
                 .idProducto(request.getIdProd())
