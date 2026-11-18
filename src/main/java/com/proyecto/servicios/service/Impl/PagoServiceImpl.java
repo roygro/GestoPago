@@ -78,7 +78,7 @@ public class PagoServiceImpl implements PagoService {
     }
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = PagoFallidoException.class)
     public PagoResponse procesarPago(PagoRequest request) {
         log.info("Iniciando procesamiento de pago. Cuenta={}, idProd={}, idSer={}, monto={}",
                 request.getNumCuenta(), request.getIdProd(), request.getIdSer(), request.getMonto());
@@ -109,6 +109,15 @@ public class PagoServiceImpl implements PagoService {
                         ? request.getReference().trim()
                         : "1111111111");
 
+        // Para recargas TAE (como Telcel), GestoPago rechaza con Código 55 si viaja el campo 'referencia'.
+        // 'referencia' solo aplica a pago de servicios con recibo (CFE, Telmex, etc.).
+        String referenciaFinal = (request.getReference() != null && !request.getReference().isBlank())
+                ? request.getReference().trim()
+                : null;
+        if ("PAGO-APP".equalsIgnoreCase(referenciaFinal) || (referenciaFinal != null && referenciaFinal.equals(telefono))) {
+            referenciaFinal = null;
+        }
+
         SendTxPayloadDTO payloadDto = SendTxPayloadDTO.builder()
                 .idProducto(request.getIdProd())
                 .idServicio(request.getIdSer())
@@ -116,7 +125,7 @@ public class PagoServiceImpl implements PagoService {
                 .horaLocal(horaLocal)
                 .upc(upc)
                 .unidad(unidad)
-                .referencia(request.getReference() != null && !request.getReference().isBlank() ? request.getReference().trim() : null)
+                .referencia(referenciaFinal)
                 .montoPago(request.getMonto().doubleValue())
                 .build();
 
