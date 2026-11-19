@@ -5,6 +5,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 /**
  * Cliente Feign para el endpoint de envío de transacciones de GestoPago.
@@ -23,11 +24,17 @@ public interface GestoPagoSendTxClient {
             value = "/sistema/service/sendTx.do",
             consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE
     )
-    String sendTx(@RequestBody String formBody);
+    String sendTx(
+            @RequestHeader("Authorization") String authorization,
+            @RequestBody String formBody
+    );
 
     @PostMapping(
             value = "/sistema/service/confirmTx.do",
             consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE
     )
-    String confirmTx(@RequestBody String formBody);
+    String confirmTx(
+            @RequestHeader("Authorization") String authorization,
+            @RequestBody String formBody
+    );
 }

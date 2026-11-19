@@ -49,8 +49,15 @@ public class PagoServiceImpl implements PagoService {
     private final UsuarioAutenticado usuarioAutenticado;
     private final TwoFactorService twoFactorService;
     private final ProductoService productoService;
+    private final com.proyecto.servicios.service.GestoPagoTokenService gestoPagoTokenService;
     private final ObjectMapper objectMapper;
     private final XmlMapper xmlMapper;
+
+    @Value("${gestopago.auth.id-distribuidor}")
+    private Integer idDistribuidor;
+
+    @Value("${gestopago.auth.codigo-dispositivo}")
+    private String codigoDispositivo;
 
     @Value("${gestopago.aes.secret-key}")
     private String secretKey;
@@ -67,7 +74,8 @@ public class PagoServiceImpl implements PagoService {
                            GestoPagoSendTxClient gestoPagoSendTxClient,
                            UsuarioAutenticado usuarioAutenticado,
                            TwoFactorService twoFactorService,
-                           ProductoService productoService) {
+                           ProductoService productoService,
+                           com.proyecto.servicios.service.GestoPagoTokenService gestoPagoTokenService) {
         this.cuentaRepository = cuentaRepository;
         this.saldoRepository = saldoRepository;
         this.transaccionPagoRepository = transaccionPagoRepository;
@@ -75,6 +83,7 @@ public class PagoServiceImpl implements PagoService {
         this.usuarioAutenticado = usuarioAutenticado;
         this.twoFactorService = twoFactorService;
         this.productoService = productoService;
+        this.gestoPagoTokenService = gestoPagoTokenService;
         this.objectMapper = new ObjectMapper();
         this.xmlMapper = new XmlMapper();
     }
@@ -169,11 +178,17 @@ public class PagoServiceImpl implements PagoService {
         txLocal.setEstatus("INICIADA");
         transaccionPagoRepository.save(txLocal);
 
-        // 9. Enviar transacción al proveedor externo con manejo de Timeout y Conciliación
+        // 9. Obtener Token y enviar transacción al proveedor externo con manejo de Timeout y Conciliación
+        String token = gestoPagoTokenService.obtenerTokenActivo(idDistribuidor, codigoDispositivo)
+                .map(com.proyecto.servicios.entity.gestopago.GestoPagoToken::getToken)
+                .orElseThrow(() -> new ValidacionNegocioException("No se encontró token activo de GestoPago para distribuidor " + idDistribuidor));
+        log.info("Token GestoPago obtenido para sendTx: {}...", token.substring(0, Math.min(20, token.length())));
+        String authHeader = "Bearer " + token;
+
         log.info("Enviando SenTx cifrado a GestoPago. UPC={}, random={}", upc, random);
         String xmlResponse;
         try {
-            xmlResponse = gestoPagoSendTxClient.sendTx(formBody);
+            xmlResponse = gestoPagoSendTxClient.sendTx(authHeader, formBody);
             log.info("Respuesta de GestoPago recibida para UPC {}: {}", upc, xmlResponse);
         } catch (RetryableException ex) {
             log.error("Timeout al comunicarse con GestoPago para UPC {}: {}", upc, ex.getMessage());
@@ -291,9 +306,14 @@ public class PagoServiceImpl implements PagoService {
         String random = String.valueOf(System.currentTimeMillis());
         String formBody = "random=" + URLEncoder.encode(random, StandardCharsets.UTF_8)
                 + "&signed=" + URLEncoder.encode(tx.getPayloadCifrado(), StandardCharsets.UTF_8);
+        String token = gestoPagoTokenService.obtenerTokenActivo(idDistribuidor, codigoDispositivo)
+                .map(com.proyecto.servicios.entity.gestopago.GestoPagoToken::getToken)
+                .orElseThrow(() -> new ValidacionNegocioException("No se encontró token activo de GestoPago para distribuidor " + idDistribuidor));
+        String authHeader = "Bearer " + token;
+
         String xmlConfirm;
         try {
-            xmlConfirm = gestoPagoSendTxClient.confirmTx(formBody);
+            xmlConfirm = gestoPagoSendTxClient.confirmTx(authHeader, formBody);
             log.info("Respuesta confirmTx recibida: {}", xmlConfirm);
         } catch (Exception e) {
             log.error("Error al ejecutar confirmTx para UPC {}: {}", upc, e.getMessage(), e);
