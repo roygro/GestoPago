@@ -67,4 +67,9 @@ public class PagoRequest {
     @JsonAlias({"UPC", "Upc"})
     @Schema(description = "Código único de pago opcional (10 caracteres)", example = "7d3f6cb2b5")
     private String upc;
+
+    @JsonProperty("tipoFront")
+    @JsonAlias({"TipoFront", "tipo_front"})
+    @Schema(description = "Tipo de producto: TAE, PAGO_SERVICIO, etc.", example = "TAE")
+    private String tipoFront;
 }
