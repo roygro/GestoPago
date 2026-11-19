@@ -115,30 +115,22 @@ public class PagoServiceImpl implements PagoService {
                 : generarUpcUnico();
         String horaLocal = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
 
-        // Determinar si es una recarga TAE (Telcel, Movistar, etc.)
-        // Para TAE: el teléfono es el número del destinatario de la recarga.
-        // En el sandbox de GestoPago, el número "5555555551" es el teléfono de prueba que retorna éxito (Código 01).
-        // Con cualquier otro número el sandbox retorna Código 55 (rechazo del carrier en preprod).
-        boolean esTAE = "TAE".equalsIgnoreCase(request.getTipoFront())
-                || request.getIdSer() == null || request.getIdSer() == 133;
+        // Teléfono: prioridad al enviado por el cliente; si viene en referencia con 10 dígitos o vacío, fallback a 5555555551
+        String telefono = (request.getTelefono() != null && !request.getTelefono().isBlank())
+                ? request.getTelefono().trim()
+                : (request.getReference() != null && request.getReference().trim().length() == 10
+                        ? request.getReference().trim()
+                        : "5555555551");
 
-        String telefono;
-        if (esTAE) {
-            // Sandbox: usar número de prueba oficial de GestoPago para obtener respuesta exitosa
-            telefono = "5555555551";
-        } else {
-            telefono = (request.getTelefono() != null && !request.getTelefono().isBlank())
-                    ? request.getTelefono().trim()
-                    : "1111111111";
+        // Referencia: si no es requerida o coincide con el teléfono o identificador de app, se omite
+        String referencia = (request.getReference() != null && !request.getReference().isBlank())
+                ? request.getReference().trim()
+                : null;
+        if (referencia != null && (referencia.equals(telefono) || "PAGO-APP".equalsIgnoreCase(referencia))) {
+            referencia = null;
         }
 
-        // Para recargas TAE (como Telcel), GestoPago rechaza si viajan 'referencia' o 'montoPago'.
-        // Esos campos solo aplican a pagos de servicios con recibo (CFE, Telmex, etc.).
-        String referenciaFinal = esTAE ? null
-                : (request.getReference() != null && !request.getReference().isBlank()
-                        ? request.getReference().trim()
-                        : null);
-        Double montoPagoFinal = esTAE ? null : request.getMonto().doubleValue();
+        Double montoPago = request.getMonto() != null ? request.getMonto().doubleValue() : null;
 
         SendTxPayloadDTO payloadDto = SendTxPayloadDTO.builder()
                 .idProducto(request.getIdProd())
@@ -147,8 +139,8 @@ public class PagoServiceImpl implements PagoService {
                 .horaLocal(horaLocal)
                 .upc(upc)
                 .unidad(unidad)
-                .referencia(referenciaFinal)
-                .montoPago(montoPagoFinal)
+                .referencia(referencia)
+                .montoPago(montoPago)
                 .build();
 
         // 7. Cifrado AES-256
