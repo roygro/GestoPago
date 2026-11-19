@@ -29,6 +29,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
@@ -87,8 +89,7 @@ public class PagoServiceImpl implements PagoService {
         validarProductoYPrecio(request.getIdProd(), request.getIdSer(), request.getMonto());
 
         // 2. Control de idempotencia / Prevención de cargos duplicados en ventana corta (2 min)
-        // SANDBOX: desactivado temporalmente porque usamos UPC fijo "UPC_Test_XX"
-        // validarNoDuplicado(request);
+        validarNoDuplicado(request);
 
         // 3. Validaciones de cuenta y cliente
         Cuenta cuenta = validarClienteActivo(request.getNumCuenta());
@@ -100,9 +101,9 @@ public class PagoServiceImpl implements PagoService {
         twoFactorService.validarCodigo(request.getNumCuenta(), request.getTwoFactorCode());
 
         // 6. Preparar payload SendTx
-        // SANDBOX: GestoPago preprod reconoce "UPC_Test_XX" como UPC de prueba para retornar éxito (Código 01).
-        // Con UPC aleatorio el sandbox no identifica el escenario de prueba y retorna Código 55.
-        String upc = "UPC_Test_XX";
+        String upc = (request.getUpc() != null && !request.getUpc().isBlank())
+                ? request.getUpc().trim()
+                : generarUpcUnico();
         String horaLocal = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
 
         // Determinar si es una recarga TAE (Telcel, Movistar, etc.)
@@ -151,7 +152,9 @@ public class PagoServiceImpl implements PagoService {
             throw new ValidacionNegocioException("Error al preparar la transacción cifrada: " + e.getMessage());
         }
 
-        String random = System.currentTimeMillis() + "_rand";
+        String random = String.valueOf(System.currentTimeMillis());
+        String formBody = "random=" + URLEncoder.encode(random, StandardCharsets.UTF_8)
+                + "&signed=" + URLEncoder.encode(signed, StandardCharsets.UTF_8);
 
         // 8. Registro previo de la transacción en estatus INICIADA para trazabilidad e idempotencia
         TransaccionPago txLocal = new TransaccionPago();
@@ -170,7 +173,7 @@ public class PagoServiceImpl implements PagoService {
         log.info("Enviando SenTx cifrado a GestoPago. UPC={}, random={}", upc, random);
         String xmlResponse;
         try {
-            xmlResponse = gestoPagoSendTxClient.sendTx(random, signed);
+            xmlResponse = gestoPagoSendTxClient.sendTx(formBody);
             log.info("Respuesta de GestoPago recibida para UPC {}: {}", upc, xmlResponse);
         } catch (RetryableException ex) {
             log.error("Timeout al comunicarse con GestoPago para UPC {}: {}", upc, ex.getMessage());
@@ -285,10 +288,12 @@ public class PagoServiceImpl implements PagoService {
         }
 
         log.info("Ejecutando confirmTx.do para conciliar transacción UPC={}", upc);
-        String random = System.currentTimeMillis() + "_rand";
+        String random = String.valueOf(System.currentTimeMillis());
+        String formBody = "random=" + URLEncoder.encode(random, StandardCharsets.UTF_8)
+                + "&signed=" + URLEncoder.encode(tx.getPayloadCifrado(), StandardCharsets.UTF_8);
         String xmlConfirm;
         try {
-            xmlConfirm = gestoPagoSendTxClient.confirmTx(random, tx.getPayloadCifrado());
+            xmlConfirm = gestoPagoSendTxClient.confirmTx(formBody);
             log.info("Respuesta confirmTx recibida: {}", xmlConfirm);
         } catch (Exception e) {
             log.error("Error al ejecutar confirmTx para UPC {}: {}", upc, e.getMessage(), e);
