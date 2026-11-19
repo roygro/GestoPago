@@ -129,7 +129,7 @@ class PagoServiceImplTest {
                 + "    </MENSAJE>"
                 + "</RESPONSE>";
 
-        when(gestoPagoSendTxClient.sendTx(anyString(), anyString())).thenReturn(xmlExitoso);
+        when(gestoPagoSendTxClient.sendTx(anyString())).thenReturn(xmlExitoso);
 
         PagoRequest request = PagoRequest.builder()
                 .numCuenta(numCuenta)
@@ -177,7 +177,7 @@ class PagoServiceImplTest {
                 () -> pagoService.procesarPago(request));
 
         assertTrue(ex.getMessage().contains("cargo duplicado"));
-        verify(gestoPagoSendTxClient, never()).sendTx(anyString(), anyString());
+        verify(gestoPagoSendTxClient, never()).sendTx(anyString());
     }
 
     @Test
@@ -198,7 +198,7 @@ class PagoServiceImplTest {
                 () -> pagoService.procesarPago(request));
 
         assertTrue(ex.getMessage().contains("no corresponde al precio fijo"));
-        verify(gestoPagoSendTxClient, never()).sendTx(anyString(), anyString());
+        verify(gestoPagoSendTxClient, never()).sendTx(anyString());
     }
 
     @Test
@@ -215,7 +215,7 @@ class PagoServiceImplTest {
                 .build();
 
         assertThrows(CuentaNoEncontradaException.class, () -> pagoService.procesarPago(request));
-        verify(gestoPagoSendTxClient, never()).sendTx(anyString(), anyString());
+        verify(gestoPagoSendTxClient, never()).sendTx(anyString());
     }
 
     @Test
@@ -238,7 +238,7 @@ class PagoServiceImplTest {
         ValidacionNegocioException ex = assertThrows(ValidacionNegocioException.class,
                 () -> pagoService.procesarPago(request));
         assertTrue(ex.getMessage().contains("no se encuentra activo"));
-        verify(gestoPagoSendTxClient, never()).sendTx(anyString(), anyString());
+        verify(gestoPagoSendTxClient, never()).sendTx(anyString());
     }
 
     @Test
@@ -261,7 +261,7 @@ class PagoServiceImplTest {
         ValidacionNegocioException ex = assertThrows(ValidacionNegocioException.class,
                 () -> pagoService.procesarPago(request));
         assertTrue(ex.getMessage().contains("Saldo insuficiente"));
-        verify(gestoPagoSendTxClient, never()).sendTx(anyString(), anyString());
+        verify(gestoPagoSendTxClient, never()).sendTx(anyString());
     }
 
     @Test
@@ -285,7 +285,7 @@ class PagoServiceImplTest {
         ValidacionNegocioException ex = assertThrows(ValidacionNegocioException.class,
                 () -> pagoService.procesarPago(request));
         assertTrue(ex.getMessage().contains("2FA"));
-        verify(gestoPagoSendTxClient, never()).sendTx(anyString(), anyString());
+        verify(gestoPagoSendTxClient, never()).sendTx(anyString());
     }
 
     @Test
@@ -316,7 +316,7 @@ class PagoServiceImplTest {
                 + "    </MENSAJE>"
                 + "</RESPONSE>";
 
-        when(gestoPagoSendTxClient.confirmTx(anyString(), anyString())).thenReturn(xmlConfirm);
+        when(gestoPagoSendTxClient.confirmTx(anyString())).thenReturn(xmlConfirm);
 
         PagoResponse respuesta = pagoService.conciliarTransaccion(upc);
 
@@ -352,7 +352,7 @@ class PagoServiceImplTest {
                 + "    </MENSAJE>"
                 + "</RESPONSE>";
 
-        when(gestoPagoSendTxClient.confirmTx(anyString(), anyString())).thenReturn(xmlConfirm);
+        when(gestoPagoSendTxClient.confirmTx(anyString())).thenReturn(xmlConfirm);
 
         assertThrows(PagoFallidoException.class, () -> pagoService.conciliarTransaccion(upc));
         verify(saldoRepository, never()).save(any());
@@ -376,7 +376,7 @@ class PagoServiceImplTest {
 
         assertNotNull(respuesta);
         assertEquals("99999", respuesta.getIdTx());
-        verify(gestoPagoSendTxClient, never()).confirmTx(anyString(), anyString());
+        verify(gestoPagoSendTxClient, never()).confirmTx(anyString());
     }
 
     @Test
